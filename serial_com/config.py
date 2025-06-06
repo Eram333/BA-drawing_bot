@@ -1,0 +1,3 @@
+BAUD = 115200
+WRITE_TIMEOUT = 0.5
+USB_ID = '/dev/ttyUSB0'  #
