@@ -395,7 +395,8 @@ class MenschRoboTab(QWidget):
 
         self.part_list = DraggableList(self.part_names, self.part_image_paths) 
         self.part_list.setFixedWidth(200)
-
+        self.part_list.setStyleSheet("background-color: cornflowerblue;")
+        
         self.description_list = DraggableList(self.part_descriptions)
         self.description_list.setFixedWidth(230)
         self.description_list.setStyleSheet("background-color: cornflowerblue;")
