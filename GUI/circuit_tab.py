@@ -1,44 +1,26 @@
+# circuit_tab_n.py
 import sys
 from PyQt6.QtWidgets import (
-    QApplication, QTabWidget
-)
-from PyQt6.QtCore import  QMimeData
-from rotation_matrixes import RotationMatrixWidget
-from drawing_tab import ShapeSelector
-
-
-
-
-from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,
-    QGraphicsScene, QGraphicsView, QGraphicsEllipseItem,
-    QGraphicsRectItem, QGraphicsPixmapItem, QGraphicsTextItem, QGraphicsLineItem
+    QApplication, QWidget, QTabWidget, QHBoxLayout, QVBoxLayout, QFrame, QLabel,
+    QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsRectItem,
+    QGraphicsPixmapItem, QGraphicsTextItem, QGraphicsLineItem
 )
 from PyQt6.QtGui import QBrush, QPixmap, QPainter, QDrag, QPen, QColor
-from PyQt6.QtCore import Qt
-from PyQt6.QtCore import QRectF
 from PyQt6.QtCore import Qt, QRectF, QPointF, QMimeData
 
 
-class DraggableLabel(QLabel):
-    def __init__(self, image_path, name):
-        super().__init__()
-        self.image_path = image_path
-        self.name = name
-        self.setPixmap(QPixmap(image_path).scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio))
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setToolTip(name)
+class CustomGraphicsView(QGraphicsView):
+    def dragEnterEvent(self, event):
+        if self.scene():
+            self.scene().dragEnterEvent(event)
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            drag = QDrag(self)
-            mime = QMimeData()
-            mime.setText(f"{self.name}|{self.image_path}")
-            drag.setMimeData(mime)
-            drag.setPixmap(self.pixmap())
-            drag.setHotSpot(event.pos())
-            drag.exec()
+    def dragMoveEvent(self, event):
+        if self.scene():
+            self.scene().dragMoveEvent(event)
 
+    def dropEvent(self, event):
+        if self.scene():
+            self.scene().dropEvent(event)
 
 
 class DraggableLabel(QLabel):
@@ -47,6 +29,18 @@ class DraggableLabel(QLabel):
         self.name = name
         self.path = image_path
         self.setPixmap(QPixmap(image_path).scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio))
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setToolTip(name)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            drag = QDrag(self)
+            mime = QMimeData()
+            mime.setText(f"{self.name}|{self.path}")
+            drag.setMimeData(mime)
+            drag.setPixmap(self.pixmap())
+            drag.setHotSpot(event.pos())
+            drag.exec()
 
     def mouseMoveEvent(self, event):
         drag = QDrag(self)
@@ -67,6 +61,7 @@ class CircuitScene(QGraphicsScene):
             self.setBackgroundBrush(QBrush(QPixmap(background_image).scaled(800, 500)))
 
         for label, pos, expected_name in placeholder_data:
+            # === Create the shape ===
             if "Motor" in label:
                 shape = QGraphicsEllipseItem(QRectF(0, 0, 70, 70))
             elif "ESP32" in label:
@@ -74,15 +69,22 @@ class CircuitScene(QGraphicsScene):
             else:
                 shape = QGraphicsRectItem(QRectF(0, 0, 60, 60))
 
-            shape.setBrush(QBrush(QColor(255, 255, 255, 200)))  # Semi-transparent white
+            shape.setBrush(QBrush(QColor(255, 255, 255, 200)))  # semi-transparent
             shape.setPen(QPen(QColor("black"), 2))
             shape.setPos(*pos)
             shape.setZValue(1)
             self.addItem(shape)
 
+            # === Create the text label ===
             text = QGraphicsTextItem(label)
-            text.setPos(pos[0], pos[1] + 72)
             text.setZValue(2)
+
+            text_width = text.boundingRect().width()
+            shape_width = shape.rect().width()
+            x = pos[0] + (shape_width - text_width) / 2
+            y = pos[1] + shape.rect().height() + 5  # 5 px below shape
+            text.setPos(x, y)
+
             self.addItem(text)
 
             self.placeholders.append({
@@ -97,76 +99,47 @@ class CircuitScene(QGraphicsScene):
     def draw_connections(self):
         pen = QPen(Qt.GlobalColor.black, 2)
 
-        coords = {
-            "Motor Left": (50, 330),
-            "SimpleFOC Mini L": (150, 220),
-            "Encoder Left": (150, 330),
-            "ESP32": (350, 150),
-            "SimpleFOC Mini R": (550, 220),
-            "Encoder Right": (550, 330),
-            "Motor Right": (650, 330),
-        }
+        def pt(x, y):
+            return QPointF(x, y)
 
-        def center(pos):
-            return QPointF(pos[0] + 35, pos[1] + 35)
+        connections = [
+            (pt(135, 385), pt(135, 285)),  # Motor L -> Encoder L
+            (pt(135, 285), pt(235, 285)),  # Encoder L -> SimpleFOC L
+            (pt(235, 285), pt(235, 225)),  # up to FOC
+            (pt(235, 225), pt(385, 225)),  # to ESP32
 
-        def draw_path(points):
-            for i in range(len(points) - 1):
-                line = QGraphicsLineItem(points[i].x(), points[i].y(), points[i + 1].x(), points[i + 1].y())
-                line.setPen(pen)
-                self.addItem(line)
+            (pt(635, 385), pt(635, 285)),  # Motor R -> Encoder R
+            (pt(635, 285), pt(535, 285)),  # Encoder R -> FOC R
+            (pt(535, 285), pt(535, 225)),  # up
+            (pt(535, 225), pt(385, 225)),  # to ESP32
+        ]
 
-        def path(*pts):
-            return [QPointF(x, y) for x, y in pts]
+        for start, end in connections:
+            line = QGraphicsLineItem(start.x(), start.y(), end.x(), end.y())
+            line.setPen(pen)
+            self.addItem(line)
 
-        # # Left side connections
-        # draw_path([
-        #     center(coords["Motor Left"]),
-        #     QPointF(100, 365),
-        #     QPointF(100, 255),
-        #     center(coords["SimpleFOC Mini L"])
-        # ])
-        #
-        # draw_path([
-        #     center(coords["Encoder Left"]),
-        #     QPointF(135, 365),
-        #     QPointF(135, 255),
-        #     QPointF(150 + 35, 255)
-        # ])
-        #
-        # draw_path([
-        #     center(coords["SimpleFOC Mini L"]),
-        #     QPointF(200, 220),
-        #     QPointF(200, 150),
-        #     center(coords["ESP32"])
-        # ])
-        #
-        # # Right side connections
-        # draw_path([
-        #     center(coords["ESP32"]),
-        #     QPointF(500, 150),
-        #     QPointF(500, 220),
-        #     center(coords["SimpleFOC Mini R"])
-        # ])
-        #
-        # draw_path([
-        #     center(coords["SimpleFOC Mini R"]),
-        #     QPointF(600, 255),
-        #     QPointF(600, 365),
-        #     center(coords["Encoder Right"])
-        # ])
-        #
-        # draw_path([
-        #     center(coords["SimpleFOC Mini R"]),
-        #     QPointF(600, 255),
-        #     QPointF(600, 365),
-        #     center(coords["Motor Right"])
-        # ])
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
 
     def dragMoveEvent(self, event):
-        event.acceptProposedAction()
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+
+    def reset_scene(self):
+        for placeholder in self.placeholders:
+            # Remove image if present
+            if placeholder["content"]:
+                self.removeItem(placeholder["content"])
+                placeholder["content"] = None
+
+            # Reset placeholder color
+            placeholder["rect"].setBrush(QBrush(QColor(255, 255, 255, 200)))
 
     def dropEvent(self, event):
+        if not event.mimeData().hasText():
+            return
         try:
             name, path = event.mimeData().text().split("|")
         except ValueError:
@@ -176,20 +149,30 @@ class CircuitScene(QGraphicsScene):
             rect = placeholder["rect"]
             expected = placeholder["expected"]
 
-            if rect.contains(event.scenePos() - rect.pos()) and placeholder["content"] is None:
-                if name != expected:
-                    print(f"❌ Cannot place {name} in {placeholder['label']} (expected: {expected})")
-                    return
-
+            scene_pos = self.views()[0].mapToScene(event.position().toPoint())
+            if rect.contains(scene_pos - rect.pos()):
                 pixmap = QPixmap(path).scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio)
                 item = QGraphicsPixmapItem(pixmap)
-                item.setPos(rect.pos().x() + 5, rect.pos().y() + 5)
+
+                rect_width = rect.rect().width()
+                rect_height = rect.rect().height()
+                pixmap_width = pixmap.width()
+                pixmap_height = pixmap.height()
+
+                x = rect.pos().x() + (rect_width - pixmap_width) / 2
+                y = rect.pos().y() + (rect_height - pixmap_height) / 2
+                item.setPos(x, y)
+
                 item.setZValue(3)
                 self.addItem(item)
-
                 placeholder["content"] = item
-                rect.setBrush(QBrush(QColor("lightgreen")))
+
+                if name == expected:
+                    rect.setBrush(QBrush(QColor("lightgreen")))
+                else:
+                    rect.setBrush(QBrush(QColor("red")))
                 return
+
 
 
 class CircuitTab(QWidget):
@@ -201,10 +184,10 @@ class CircuitTab(QWidget):
         palette_layout = QVBoxLayout(palette_frame)
 
         components = [
-            (r"C:\Users\Eram Tarek\Desktop\BA\microcontroller.png", "ESP32"),
-            (r"C:\Users\Eram Tarek\Desktop\BA\lucky2.png", "SimpleFOC Mini"),
-            (r"C:\Users\Eram Tarek\Desktop\BA\motor.png", "BLDC Motor"),
-            (r"C:\Users\Eram Tarek\Desktop\BA\encoder.png", "AS5600 Encoder"),
+            (r"C:\\Users\\Eram Tarek\\Desktop\\BA\\microcontroller.png", "ESP32"),
+            (r"C:\\Users\\Eram Tarek\\Desktop\\BA\\lucky2.png", "SimpleFOC Mini"),
+            (r"C:\\Users\\Eram Tarek\\Desktop\\BA\\motor.png", "BLDC Motor"),
+            (r"C:\\Users\\Eram Tarek\\Desktop\\BA\\encoder.png", "AS5600 Encoder"),
         ]
 
         for path, name in components:
@@ -212,19 +195,32 @@ class CircuitTab(QWidget):
             palette_layout.addWidget(label)
 
         placeholder_data = [
-            ("Motor Left", (50, 320), "BLDC Motor"),
-            ("Encoder Left", (100, 260), "AS5600 Encoder"),
-            ("SimpleFOC Mini L", (150, 200), "SimpleFOC Mini"),
-            ("ESP32", (350, 220), "ESP32"),
-            ("SimpleFOC Mini R", (550, 200), "SimpleFOC Mini"),
-            ("Encoder Right", (600, 260), "AS5600 Encoder"),
-            ("Motor Right", (650, 320), "BLDC Motor"),
+            ("Motor Left", (100, 350), "BLDC Motor"),
+            ("Encoder Left", (100, 250), "AS5600 Encoder"),
+            ("SimpleFOC Mini L", (200, 250), "SimpleFOC Mini"),
+            ("ESP32", (350, 200), "ESP32"),
+            ("SimpleFOC Mini R", (500, 250), "SimpleFOC Mini"),
+            ("Encoder Right", (600, 250), "AS5600 Encoder"),
+            ("Motor Right", (600, 350), "BLDC Motor"),
         ]
 
-        self.scene = CircuitScene(placeholder_data, background_image=r"")
-        self.view = QGraphicsView(self.scene)
+        self.scene = CircuitScene(placeholder_data)
+        self.view = CustomGraphicsView(self.scene)
         self.view.setAcceptDrops(True)
         self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         layout.addWidget(palette_frame, 1)
         layout.addWidget(self.view, 3)
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    win = QWidget()
+    layout = QVBoxLayout(win)
+    tabs = QTabWidget()
+    tabs.addTab(CircuitTab(), "Schaltung")
+    layout.addWidget(tabs)
+    win.setWindowTitle("Drawing Bot GUI")
+    win.resize(1000, 600)
+    win.show()
+    sys.exit(app.exec())
