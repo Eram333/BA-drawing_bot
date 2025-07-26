@@ -18,10 +18,7 @@ class DraggableList(QListWidget):
     def __init__(self, items, image_paths=None):
         super().__init__()
         self.setDragEnabled(True)
-
        
-
-
         if image_paths is not None:
             #  Linke Seite: Bauteile mit Bild + Name
             for i, item_text in enumerate(items):
@@ -114,7 +111,7 @@ class DraggableList(QListWidget):
             img_label = None
             text_label = labels[0]
         else:
-            print("[FEHLER] Kein gültiges Label-Widget gefunden.")
+            print(" No valid label widget found")
             return
 
         name = text_label.text()
@@ -244,13 +241,7 @@ class TextDropLabel(QLabel):
         if event.mimeData().hasText():
             dropped_text = event.mimeData().text().strip()
             print(f"[DROP] Erwartet: {self.expected_text} | Erhalten: {dropped_text}")
-
-            beschreibung_zu_expected = {
-            "Mikrocontroller zur zentralen Steuerung – wie das Gehirn.": "Kopf",
-            "Sensor zur präzisen Winkelmessung – wie der Gelenksinn im Körper.": "Auge",
-            "Motor für kontrollierte Bewegung – wie ein Muskel.": "Arm",
-            "Motorregler für feine Bewegungen – wie das Rückenmark.": "Rumpf"
-            }
+        
             if dropped_text == self.expected_text:
                 self.setStyleSheet("background-color: lightgreen; border: 2px solid green;")
                 self.setText(dropped_text)
@@ -358,7 +349,7 @@ class MenschRoboTab(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.body_labels = ["Kopf", "Auge", "Arm", "Rumpf"]
+        self.body_labels = ["Head", "Eye", "Arm", "Torso"]
         self.part_names = ["ESP32 Mikrocontroller", "AS5600 Encoder", "BLDC Gimbal Motor", "SimpleFOC Mini"]
         self.part_image_paths = {
             "AS5600 Encoder": "images/AS5600_Magnetic_Encod.jpg",
@@ -368,10 +359,10 @@ class MenschRoboTab(QWidget):
         }
 
         self.part_descriptions = [
-            "Mikrocontroller zur zentralen Steuerung – wie das Gehirn.",
-            "Sensor zur präzisen Winkelmessung – wie der Gelenksinn im Körper.",
-            "Motor für kontrollierte Bewegung – wie ein Muskel.",
-            "Motorregler für feine Bewegungen – wie das Rückenmark."
+            "Microcontroller for central control – like the brain.",
+            "Sensor for precise angle measurement – like the sense of joint position in the body",
+            " Motor for controlled movement – like a muscle.",
+            "Motor controller for fine movements – like the spinal cord."
         ]
 
         
