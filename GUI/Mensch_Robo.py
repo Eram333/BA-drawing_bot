@@ -2,28 +2,27 @@
 import os
 import random
 
-
-
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QListWidget, QListWidgetItem,
     QHBoxLayout, QVBoxLayout, QGraphicsView, QGraphicsScene,
-    QGraphicsPixmapItem, QFrame
+    QGraphicsPixmapItem, QFrame, QPushButton  # <-- added QPushButton
 )
-from PyQt6.QtCore import (QSize,QBuffer, QByteArray, QIODevice)
+from PyQt6.QtCore import (QSize, QBuffer, QByteArray, QIODevice)
 
-from PyQt6.QtGui import QPixmap, QDrag,  QIcon, QImage, QCursor, QBrush
+from PyQt6.QtGui import QPixmap, QDrag, QIcon, QImage, QCursor, QBrush
 from PyQt6.QtCore import Qt, QMimeData, QByteArray
+
 
 class DraggableList(QListWidget):
     def __init__(self, items, image_paths=None):
         super().__init__()
         self.setDragEnabled(True)
-       
+
         if image_paths is not None:
             #  Linke Seite: Bauteile mit Bild + Name
             for i, item_text in enumerate(items):
                 image_path = image_paths.get(item_text, None)
-                
+
                 pixmap = QPixmap(image_path) if image_path and os.path.exists(image_path) else QPixmap()
                 if pixmap.isNull():
                     print(f"[WARNUNG] Bild ungültig oder fehlt: {image_path}")
@@ -67,7 +66,7 @@ class DraggableList(QListWidget):
                     padding: 8px;
                     border: 1px solid #999;
                     border-radius: 6px;
-                    background-color: black;
+                    background-color: white;
                 """)
 
                 # Dynamische Höhe
@@ -85,7 +84,6 @@ class DraggableList(QListWidget):
 
                 self.addItem(item)
                 self.setItemWidget(item, widget)
-
 
         self.setStyleSheet("""
             QListWidget {
@@ -128,9 +126,8 @@ class DraggableList(QListWidget):
 
         drag.setMimeData(mime_data)
         drag.exec()
-     
 
-        
+
 class DropZoneLabel(QLabel):
     def __init__(self, zone_name=""):
         super().__init__()
@@ -186,6 +183,8 @@ class ImageDropLabel(QLabel):
 
         event.acceptProposedAction()
 
+
+# Note: This second definition overwrites the first; keeping as in your file.
 class ImageDropLabel(QLabel):
     def __init__(self, expected_name=""):
         super().__init__()
@@ -221,11 +220,10 @@ class ImageDropLabel(QLabel):
 
 
 class TextDropLabel(QLabel):
-    def __init__(self,expected_text =None):
+    def __init__(self, expected_text=None):
         super().__init__()
         self.setAcceptDrops(True)
         self.expected_text = expected_text
-        #self.expected_name = expected_name
         self.setMinimumSize(120, 120)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setWordWrap(True)
@@ -241,15 +239,16 @@ class TextDropLabel(QLabel):
         if event.mimeData().hasText():
             dropped_text = event.mimeData().text().strip()
             print(f"[DROP] Erwartet: {self.expected_text} | Erhalten: {dropped_text}")
-        
+
             if dropped_text == self.expected_text:
                 self.setStyleSheet("background-color: lightgreen; border: 2px solid green;")
                 self.setText(dropped_text)
             else:
                 self.setStyleSheet("background-color: red; border: 2px solid darkred;")
                 self.setText(dropped_text)
-            
+
             event.accept()
+
 
 def get_expected_image_for(body_part):
     image_to_bodypart = {
@@ -266,8 +265,7 @@ def get_expected_image_for(body_part):
 
 class RobotCanvas(QWidget):
     def __init__(self, image_path, part_names=None, part_descriptions=None, body_labels=None, part_image_paths=None):
-        
-        
+
         super().__init__()
 
         self.part_names = part_names or []
@@ -276,9 +274,6 @@ class RobotCanvas(QWidget):
         self.part_image_paths = part_image_paths or []
 
         layout = QHBoxLayout(self)
-    
-       # Im Konstruktor der RobotCanvas
-        #layout = QHBoxLayout(self)
 
         # Linke Drop-Zonen (für Bilder)
         self.left_drop_labels = []
@@ -315,6 +310,15 @@ class RobotCanvas(QWidget):
         layout.addLayout(center_layout)
         layout.addLayout(right_drop_zone_layout)
 
+    def reset_drops(self):
+        """Clears all left and right drop zones and restores the dashed style."""
+        for drop in self.left_drop_labels:
+            drop.clear()  # clears pixmap/text
+            drop.setStyleSheet("background-color: white; border: 2px dashed gray;")
+        for drop in self.right_drop_labels:
+            drop.clear()
+            drop.setStyleSheet("background-color: white; border: 2px dashed gray;")
+
 
 class DropZone(QLabel):
     def __init__(self, title):
@@ -344,7 +348,6 @@ class DropZone(QLabel):
         event.acceptProposedAction()
 
 
-
 class MenschRoboTab(QWidget):
     def __init__(self):
         super().__init__()
@@ -352,10 +355,10 @@ class MenschRoboTab(QWidget):
         self.body_labels = ["Head", "Eye", "Arm", "Torso"]
         self.part_names = ["ESP32 Mikrocontroller", "AS5600 Encoder", "BLDC Gimbal Motor", "SimpleFOC Mini"]
         self.part_image_paths = {
-            "AS5600 Encoder": "images/AS5600_Magnetic_Encod.jpg",
-            "ESP32 Mikrocontroller": "images/Esp32.jpg",
-            "BLDC Gimbal Motor": "images/BLDC_gimbal_motor_gbm2804h.jpg",
-            "SimpleFOC Mini": "images/SimpleFoc_Mini_v1.0.jpg"
+            "AS5600 Encoder": r"C:\\Users\\Eram Tarek\\Desktop\\BA\\encoder.png",
+            "ESP32 Mikrocontroller": r"C:\\Users\\Eram Tarek\\Desktop\\BA\\microcontroller.png",
+            "BLDC Gimbal Motor": r"C:\\Users\\Eram Tarek\\Desktop\\BA\\motor.png",
+            "SimpleFOC Mini": r"C:\\Users\\Eram Tarek\\Desktop\\BA\\lucky2.png"
         }
 
         self.part_descriptions = [
@@ -365,40 +368,45 @@ class MenschRoboTab(QWidget):
             "Motor controller for fine movements – like the spinal cord."
         ]
 
-        
-
         #  RobotCanvas einmal korrekt initialisieren
         self.robot_canvas = RobotCanvas(
-            image_path = "images/MaedchenRobo.png",
+            image_path="images/MaedchenRobo.png",
             part_names=self.part_names,
             part_descriptions=self.part_descriptions,
             body_labels=self.body_labels,
             part_image_paths=self.part_image_paths
         )
-                   
 
         #  Bildpfad und Verfügbarkeit prüfen
         print("Bild existiert?", os.path.exists("images/MaedchenRobo.png"))
-        #  GUI-Elemente initialisieren (einmal)
 
         random.shuffle(self.part_names)
         random.shuffle(self.part_descriptions)
 
-        self.part_list = DraggableList(self.part_names, self.part_image_paths) 
+        self.part_list = DraggableList(self.part_names, self.part_image_paths)
         self.part_list.setFixedWidth(200)
         self.part_list.setStyleSheet("background-color: cornflowerblue;")
-        
+
         self.description_list = DraggableList(self.part_descriptions)
         self.description_list.setFixedWidth(230)
         self.description_list.setStyleSheet("background-color: cornflowerblue;")
 
         print("Beschreibungsliste wird hier gesetzt:", self.description_list.count(), "Einträge")
 
-        #  Layout setzen: links – mitte – rechts
-        layout = QHBoxLayout()
-        layout.addWidget(self.part_list)
-        layout.addWidget(self.robot_canvas)
-        layout.addWidget(self.description_list)
+        # ----- Layout: keep your 3-column layout, add Reset button below -----
+        main_layout = QVBoxLayout(self)
+        top_row = QHBoxLayout()
+        top_row.addWidget(self.part_list)
+        top_row.addWidget(self.robot_canvas)
+        top_row.addWidget(self.description_list)
 
-        self.setLayout(layout)
+        # Reset Button (only clears drop zones)
+        reset_button = QPushButton("Reset")
+        reset_button.clicked.connect(self.robot_canvas.reset_drops)
+
+        main_layout.addLayout(top_row)
+        main_layout.addWidget(reset_button)
+
+        self.setLayout(main_layout)
+
 
