@@ -175,11 +175,14 @@ class CircuitScene(QGraphicsScene):
 
 
 
+from PyQt6.QtWidgets import QPushButton  # Add this import at the top
+
 class CircuitTab(QWidget):
     def __init__(self):
         super().__init__()
         layout = QHBoxLayout(self)
 
+        # === Left side: Palette + Reset ===
         palette_frame = QFrame()
         palette_layout = QVBoxLayout(palette_frame)
 
@@ -194,6 +197,12 @@ class CircuitTab(QWidget):
             label = DraggableLabel(path, name)
             palette_layout.addWidget(label)
 
+        # === Add Reset Button ===
+        reset_button = QPushButton("Reset")
+        reset_button.clicked.connect(self.reset_scene)  # Connect the button
+        palette_layout.addWidget(reset_button)
+
+        # === Circuit area (center view) ===
         placeholder_data = [
             ("Motor Left", (100, 350), "BLDC Motor"),
             ("Encoder Left", (100, 250), "AS5600 Encoder"),
@@ -212,6 +221,10 @@ class CircuitTab(QWidget):
         layout.addWidget(palette_frame, 1)
         layout.addWidget(self.view, 3)
 
+    def reset_scene(self):
+        self.scene.reset_scene()
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -224,3 +237,4 @@ if __name__ == "__main__":
     win.resize(1000, 600)
     win.show()
     sys.exit(app.exec())
+
