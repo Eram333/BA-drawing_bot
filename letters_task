@@ -1,0 +1,518 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+from pathlib import Path
+
+from drawing_bot_api import DrawingBot
+from drawing_bot_api.shapes import Line, PartialCircle
+
+# --- Start the serial bridge (portable, no absolute paths) ---
+_serial_proc = None
+
+def ensure_serial_running():
+    """Launch drawing_bot_api/serial_com.py in the background if not already running."""
+    global _serial_proc
+    if _serial_proc and (_serial_proc.poll() is None):
+        return  # already running in this process
+
+    # serial_com.py lives inside the package folder next to this file
+    api_dir = Path(__file__).resolve().parent / "drawing_bot_api"
+    serial_script = api_dir / "serial_com.py"
+
+    if not serial_script.exists():
+        print(f"[WARN] serial_com.py not found at: {serial_script}")
+        return
+
+    py = sys.executable  # use the current interpreter / venv
+    try:
+        _serial_proc = subprocess.Popen(
+            [py, serial_script.name],
+            cwd=str(api_dir),                   # critical: so 'from config import *' works
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            start_new_session=True
+        )
+        print("[INFO] serial_com started in background.")
+    except Exception as e:
+        print(f"[ERROR] Could not start serial_com: {e}")
+
+# --- Create the bot ---
+drawing_bot = DrawingBot(unit='mm', speed=200)
+
+
+#################################
+# Letter Functions A–Z
+# (x, y) = center of letter, s = half height
+# width ≈ 1.2*s
+#################################
+#################################
+# Letter Functions A–Z (STUDENT TASKS)
+# Conventions:
+#  - (x, y) is the center of the letter.
+#  - s is the half-height (total height ≈ 2*s).
+#  - Recommended width ≈ 1.2*s → left_x = x - 0.6*s, right_x = x + 0.6*s.
+#  - yB = y - s (bottom), yT = y + s (top), yM = y (middle).
+# Use:
+#  drawing_bot.add_shape(Line([x1, y1], [x2, y2]))
+#  drawing_bot.add_shape(PartialCircle(start_pt, end_pt, radius, direction, big_angle=?))
+#################################
+
+LETTER_FUNCS = {
+    'A': letter_A, 'B': letter_B, 'C': letter_C, 'D': letter_D, 'E': letter_E,
+    'F': letter_F, 'G': letter_G, 'H': letter_H, 'I': letter_I, 'J': letter_J,
+    'K': letter_K, 'L': letter_L, 'M': letter_M, 'N': letter_N, 'O': letter_O,
+    'P': letter_P, 'Q': letter_Q, 'R': letter_R, 'S': letter_S, 'T': letter_T,
+    'U': letter_U, 'V': letter_V, 'W': letter_W, 'X': letter_X, 'Y': letter_Y,
+    'Z': letter_Z,
+}
+
+
+def write_letter(char, x=0, y=100, s=10):
+    func = LETTER_FUNCS.get(str(char).upper())
+    if not func:
+        print(f"[INFO] Letter '{char}' not implemented.")
+        return
+    func(x, y, s)
+
+def write_word(word, start_x=0, y=100, s=10, spacing=None):
+    spacing = spacing if spacing is not None else int(1.6 * s)
+    x_pos = start_x
+    for ch in str(word):
+        if ch == ' ':
+            x_pos += spacing
+            continue
+        func = LETTER_FUNCS.get(ch.upper())
+        if func:
+            func(x_pos, y, s)
+        else:
+            print(f"[INFO] Skipping unsupported char '{ch}'.")
+        x_pos += spacing
+
+
+#################################
+# Main Menu
+#################################
+
+#################################
+# Main Menu (auto-detect)
+#################################
+
+def run_letter_flow():
+    ch = input("Letter: ").strip()
+    write_letter(ch, x=0, y=100, s=10)
+
+def run_word_flow():
+    w = input("Word: ").strip()
+    write_word(w, start_x=-40, y=100, s=10)
+
+DISPATCH = {
+    "letter": run_letter_flow,
+    "word": run_word_flow,
+}
+
+def main():
+    ensure_serial_running()
+
+    if len(sys.argv) >= 2:
+        choice_word = sys.argv[1].strip().lower()
+        func = DISPATCH.get(choice_word)
+        if not func:
+            print(f"Unknown command '{choice_word}'. Valid: {', '.join(DISPATCH.keys())}")
+            return
+        func()
+    else:
+        # NEW: flexible prompt (A–Z => letter, longer => word)
+        raw = input("Type 'letter' or 'word', or just enter a single letter (A–Z) or a whole word: ").strip()
+
+        # direct single-letter case (e.g., "A")
+        if len(raw) == 1 and raw.isalpha():
+            write_letter(raw, x=0, y=100, s=10)
+
+        # direct word case (e.g., "HELLO")
+        elif len(raw) > 1 and raw.replace(" ", "").isalpha():
+            write_word(raw, start_x=-40, y=100, s=10)
+
+        # legacy commands 'letter' / 'word'
+        else:
+            func = DISPATCH.get(raw.lower())
+            if func:
+                func()
+            else:
+                print("Invalid choice. Please type 'letter', 'word', a single letter (A–Z), or a word.")
+                return
+
+    drawing_bot.plot()
+    drawing_bot.execute(promting=True)
+
+
+
+if __name__ == "__main__":
+    main()
+
+
+def letter_C(x=0, y=100, s=10):
+    """
+    TASK: Draw 'C' as an open rectangle (top, left, bottom).
+    Hints:
+    - Top: (right_x, yT) → (left_x, yT)
+    - Left: (left_x, yT) → (left_x, yB)
+    - Bottom: (left_x, yB) → (right_x, yB)
+    (Optional curve): single large PartialCircle from (x, y+s) to (x, y-s), opening on the right.
+    """
+    pass
+
+
+def letter_D(x=0, y=100, s=10):
+    """
+    TASK: Draw 'D' with a vertical stem and a right side forming the box curve.
+    Hints:
+    - Stem: (left_x, yB) → (left_x, yT).
+    - Boxed curve: top (left_x→right_x at yT), right side down (right_x, yT→right_x, yB),
+      bottom back (right_x→left_x at yB).
+    (Optional): Use a large PartialCircle from (left_x,yT) → (left_x,yB) to suggest curvature.
+    """
+    pass
+
+
+def letter_E(x=0, y=100, s=10):
+    """
+    TASK: Draw 'E' with one vertical and three horizontals (top/middle/bottom).
+    Hints:
+    - Stem: (left_x, yB) → (left_x, yT).
+    - Top: (left_x, yT) → (right_x, yT).
+    - Middle: (left_x, yM) → (right_x - 0.2*width, yM).
+    - Bottom: (left_x, yB) → (right_x, yB).
+    """
+    pass
+
+
+def letter_F(x=0, y=100, s=10):
+    """
+    TASK: Draw 'F' with one vertical and two horizontals (top/middle).
+    Hints:
+    - Stem: (left_x, yB) → (left_x, yT).
+    - Top: (left_x, yT) → (right_x, yT).
+    - Middle: (left_x, yM) → (right_x - 0.2*width, yM).
+    """
+    pass
+
+
+def letter_G(x=0, y=100, s=10):
+    """
+    TASK: Draw 'G' as a 'C' with an inward notch on the right.
+    Hints:
+    - Top: (right_x, yT) → (left_x, yT).
+    - Left: (left_x, yT) → (left_x, yB).
+    - Bottom: (left_x, yB) → (right_x, yB).
+    - Right lower up: (right_x, yB) → (right_x, yM).
+    - Inward notch: (right_x, yM) → (right_x - 0.4*width, yM).
+    (Optional): use PartialCircle for the main 'C' curve if desired.
+    """
+    pass
+
+
+def letter_H(x=0, y=100, s=10):
+    """
+    TASK: Draw 'H' with two vertical stems and a middle bar.
+    Hints:
+    - Left stem: (left_x, yB) → (left_x, yT).
+    - Right stem: (right_x, yB) → (right_x, yT).
+    - Middle bar: (left_x, yM) → (right_x, yM).
+    """
+    pass
+
+
+def letter_I(x=0, y=100, s=10):
+    """
+    TASK: Draw 'I' with top and bottom caps and a center vertical.
+    Hints:
+    - Top cap: (left_x, yT) → (right_x, yT).
+    - Vertical: (x, yB) → (x, yT).
+    - Bottom cap: (left_x, yB) → (right_x, yB).
+    """
+    pass
+
+
+def letter_J(x=0, y=100, s=10):
+    """
+    TASK: Draw 'J' as a top cap, a center vertical down, and a bottom-left hook.
+    Hints:
+    - Top cap: (left_x, yT) → (right_x, yT).
+    - Vertical down: (x, yT) → (x, yB + 0.2*height).
+    - Hook: (x, yB + 0.2*height) → (left_x, yB).
+    (Optional): Make the hook curved using a short PartialCircle if you like.
+    """
+    pass
+
+
+def letter_K(x=0, y=100, s=10):
+    """
+    TASK: Draw 'K' with a vertical stem and two diagonals meeting at the middle.
+    Hints:
+    - Stem: (left_x, yB) → (left_x, yT).
+    - Upper diagonal: (left_x, yM) → (right_x, yT).
+    - Lower diagonal: (left_x, yM) → (right_x, yB).
+    """
+    pass
+
+
+def letter_L(x=0, y=100, s=10):
+    """
+    TASK: Draw 'L' with a vertical and a bottom horizontal.
+    Hints:
+    - Vertical: (left_x, yT) → (left_x, yB).
+    - Bottom: (left_x, yB) → (right_x, yB).
+    """
+    pass
+
+
+def letter_M(x=0, y=100, s=10):
+    """
+    TASK: Draw 'M' with two verticals and two inward diagonals.
+    Hints:
+    - Left vertical: (left_x, yB) → (left_x, yT).
+    - Right vertical: (right_x, yB) → (right_x, yT).
+    - Left diagonal: (left_x, yT) → (x, yB + 0.4*height).
+    - Right diagonal: (right_x, yT) → (x, yB + 0.4*height).
+    """
+    pass
+
+
+def letter_N(x=0, y=100, s=10):
+    """
+    TASK: Draw 'N' with two verticals and one diagonal.
+    Hints:
+    - Left vertical: (left_x, yB) → (left_x, yT).
+    - Right vertical: (right_x, yB) → (right_x, yT).
+    - Diagonal: (left_x, yB) → (right_x, yT).
+    """
+    pass
+
+
+def letter_O(x=0, y=100, s=10):
+    """
+    TASK: Draw 'O' as a rectangle (robust stroke font).
+    Hints:
+    - Top: (left_x, yT) → (right_x, yT).
+    - Right: (right_x, yT) → (right_x, yB).
+    - Bottom: (right_x, yB) → (left_x, yB).
+    - Left: (left_x, yB) → (left_x, yT).
+    (Optional): Use a big PartialCircle pair to make it rounded.
+    """
+    pass
+
+
+def letter_P(x=0, y=100, s=10):
+    """
+    TASK: Draw 'P' with a vertical stem and a single top bowl.
+    Hints:
+    - Stem: (left_x, yB) → (left_x, yT).
+    - Bowl (box style): top (left_x→right_x at yT), right down to yM, back to left_x at yM.
+    (Optional curve): PartialCircle([left_x,yT]→[left_x,yM], radius≈0.9*s, dir=-1).
+    """
+    pass
+
+
+def letter_Q(x=0, y=100, s=10):
+    """
+    TASK: Draw 'Q' as an 'O' with a small tail to the bottom-right.
+    Hints:
+    - Draw 'O' box (top/right/bottom/left).
+    - Tail: short diagonal from center (x,y) to (right_x, yB).
+    (Optional): Rounded 'O' with arcs plus a straight tail.
+    """
+    pass
+
+
+def letter_R(x=0, y=100, s=10):
+    """
+    TASK: Draw 'R' with a stem, a small upper bowl, and a diagonal leg.
+    Hints:
+    - Stem: (left_x, yB) → (left_x, yT).
+    - Top bar: (left_x, yT) → (right_x, yT).
+    - Bowl (curved or straight):
+        * Curved: PartialCircle([left_x,yT]→[left_x,yM], radius≈0.9*s, direction=-1).
+        * Or box: (right_x,yT) down to (right_x,yM), back to (left_x,yM).
+    - Leg: (left_x, yM) → (right_x, yB).
+    """
+    pass
+
+
+def letter_S(x=0, y=100, s=10):
+    """
+    TASK: Draw 'S' as five short segments (boxy S).
+    Hints:
+    - Top: (right_x, yT) → (left_x, yT).
+    - Down left: (left_x, yT) → (left_x, yM).
+    - Middle: (left_x, yM) → (right_x, yM).
+    - Down right: (right_x, yM) → (right_x, yB).
+    - Bottom: (right_x, yB) → (left_x, yB).
+    (Optional): Use two PartialCircle arcs (top and bottom) for a curvier S.
+    """
+    pass
+
+
+def letter_T(x=0, y=100, s=10):
+    """
+    TASK: Draw 'T' with a top bar and a center vertical.
+    Hints:
+    - Top bar: (left_x, yT) → (right_x, yT).
+    - Vertical: (x, yT) → (x, yB).
+    """
+    pass
+
+
+def letter_U(x=0, y=100, s=10):
+    """
+    TASK: Draw 'U' with two verticals and a bottom bar.
+    Hints:
+    - Left: (left_x, yT) → (left_x, yB).
+    - Right: (right_x, yT) → (right_x, yB).
+    - Bottom: (left_x, yB) → (right_x, yB).
+    (Optional): Use a PartialCircle to round the bottom.
+    """
+    pass
+
+
+def letter_V(x=0, y=100, s=10):
+    """
+    TASK: Draw 'V' with two diagonals meeting at the bottom center.
+    Hints:
+    - Left diag: (left_x, yT) → (x, yB).
+    - Right diag: (right_x, yT) → (x, yB).
+    """
+    pass
+
+
+def letter_W(x=0, y=100, s=10):
+    """
+    TASK: Draw 'W' with four segments (down, up, down, up).
+    Hints:
+    - Down: (left_x, yT) → (left_x + 0.25*width, yB).
+    - Up: (left_x + 0.25*width, yB) → (x, yT - 0.2*height).
+    - Down: (x, yT - 0.2*height) → (right_x - 0.25*width, yB).
+    - Up: (right_x - 0.25*width, yB) → (right_x, yT).
+    """
+    pass
+
+
+def letter_X(x=0, y=100, s=10):
+    """
+    TASK: Draw 'X' with two crossing diagonals.
+    Hints:
+    - Diagonal 1: (left_x, yB) → (right_x, yT).
+    - Diagonal 2: (right_x, yB) → (left_x, yT).
+    """
+    pass
+
+
+def letter_Y(x=0, y=100, s=10):
+    """
+    TASK: Draw 'Y' with a split at the top meeting at center, then a vertical down.
+    Hints:
+    - Left arm: (left_x, yT) → (x, yM).
+    - Right arm: (right_x, yT) → (x, yM).
+    - Stem: (x, yM) → (x, yB).
+    """
+    pass
+
+
+def letter_Z(x=0, y=100, s=10):
+    """
+    TASK: Draw 'Z' with top and bottom bars and a diagonal across.
+    Hints:
+    - Top: (left_x, yT) → (right_x, yT).
+    - Diagonal: (right_x, yT) → (left_x, yB).
+    - Bottom: (left_x, yB) → (right_x, yB).
+    """
+    pass
+
+
+LETTER_FUNCS = {
+    'A': letter_A, 'B': letter_B, 'C': letter_C, 'D': letter_D, 'E': letter_E,
+    'F': letter_F, 'G': letter_G, 'H': letter_H, 'I': letter_I, 'J': letter_J,
+    'K': letter_K, 'L': letter_L, 'M': letter_M, 'N': letter_N, 'O': letter_O,
+    'P': letter_P, 'Q': letter_Q, 'R': letter_R, 'S': letter_S, 'T': letter_T,
+    'U': letter_U, 'V': letter_V, 'W': letter_W, 'X': letter_X, 'Y': letter_Y,
+    'Z': letter_Z,
+}
+
+
+def write_letter(char, x=0, y=100, s=10):
+    func = LETTER_FUNCS.get(str(char).upper())
+    if not func:
+        print(f"[INFO] Letter '{char}' not implemented.")
+        return
+    func(x, y, s)
+
+def write_word(word, start_x=0, y=100, s=10, spacing=None):
+    spacing = spacing if spacing is not None else int(1.6 * s)
+    x_pos = start_x
+    for ch in str(word):
+        if ch == ' ':
+            x_pos += spacing
+            continue
+        func = LETTER_FUNCS.get(ch.upper())
+        if func:
+            func(x_pos, y, s)
+        else:
+            print(f"[INFO] Skipping unsupported char '{ch}'.")
+        x_pos += spacing
+
+
+#################################
+# Main Menu
+#################################
+
+
+def run_letter_flow():
+    ch = input("Letter: ").strip()
+    write_letter(ch, x=0, y=100, s=10)
+
+def run_word_flow():
+    w = input("Word: ").strip()
+    write_word(w, start_x=-40, y=100, s=10)
+
+DISPATCH = {
+    "letter": run_letter_flow,
+    "word": run_word_flow,
+}
+
+def main():
+    ensure_serial_running()
+
+    if len(sys.argv) >= 2:
+        choice_word = sys.argv[1].strip().lower()
+        func = DISPATCH.get(choice_word)
+        if not func:
+            print(f"Unknown command '{choice_word}'. Valid: {', '.join(DISPATCH.keys())}")
+            return
+        func()
+    else:
+        # NEW: flexible prompt (A–Z => letter, longer => word)
+        raw = input("Type 'letter' or 'word', or just enter a single letter (A–Z) or a whole word: ").strip()
+
+        # direct single-letter case (e.g., "A")
+        if len(raw) == 1 and raw.isalpha():
+            write_letter(raw, x=0, y=100, s=10)
+
+        # direct word case (e.g., "HELLO")
+        elif len(raw) > 1 and raw.replace(" ", "").isalpha():
+            write_word(raw, start_x=-40, y=100, s=10)
+
+        # legacy commands 'letter' / 'word'
+        else:
+            func = DISPATCH.get(raw.lower())
+            if func:
+                func()
+            else:
+                print("Invalid choice. Please type 'letter', 'word', a single letter (A–Z), or a word.")
+                return
+
+    drawing_bot.plot()
+    drawing_bot.execute(promting=True)
+
+
+
+if __name__ == "__main__":
+    main()
