@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 import sys
 import subprocess
@@ -58,27 +57,97 @@ drawing_bot = DrawingBot(unit='mm', speed=200)
 #  drawing_bot.add_shape(PartialCircle(start_pt, end_pt, radius, direction, big_angle=?))
 #################################
 
-def letter_A(x=0, y=100, s=10):
-    """
-    TASK: Draw 'A' with two diagonal legs and a middle crossbar.
-    Hints:
-    - Compute: left_x=x-0.6*s, right_x=x+0.6*s, yB=y-s, yT=y+s, yM=y.
-    - Legs: (left_x, yB) → (x, yT), and (right_x, yB) → (x, yT).
-    - Crossbar: short horizontal around yM, e.g. from left_x+20% width to right_x-20% width.
-    """
-    pass
+LETTER_FUNCS = {
+    'A': letter_A, 'B': letter_B, 'C': letter_C, 'D': letter_D, 'E': letter_E,
+    'F': letter_F, 'G': letter_G, 'H': letter_H, 'I': letter_I, 'J': letter_J,
+    'K': letter_K, 'L': letter_L, 'M': letter_M, 'N': letter_N, 'O': letter_O,
+    'P': letter_P, 'Q': letter_Q, 'R': letter_R, 'S': letter_S, 'T': letter_T,
+    'U': letter_U, 'V': letter_V, 'W': letter_W, 'X': letter_X, 'Y': letter_Y,
+    'Z': letter_Z,
+}
 
 
-def letter_B(x=0, y=100, s=10):
-    """
-    TASK: Draw 'B' with a vertical stem and two bowls (upper and lower).
-    Hints:
-    - Stem: (left_x, yB) → (left_x, yT).
-    - Upper bowl (box style): top line (left_x→right_x at yT), right down to yM, back to left_x at yM.
-      (Optional curve): use PartialCircle([left_x,yT]→[left_x,yM], radius≈0.9*s, direction=-1).
-    - Lower bowl: from yM to yB similarly (or another PartialCircle).
-    """
-    pass
+def write_letter(char, x=0, y=100, s=10):
+    func = LETTER_FUNCS.get(str(char).upper())
+    if not func:
+        print(f"[INFO] Letter '{char}' not implemented.")
+        return
+    func(x, y, s)
+
+def write_word(word, start_x=0, y=100, s=10, spacing=None):
+    spacing = spacing if spacing is not None else int(1.6 * s)
+    x_pos = start_x
+    for ch in str(word):
+        if ch == ' ':
+            x_pos += spacing
+            continue
+        func = LETTER_FUNCS.get(ch.upper())
+        if func:
+            func(x_pos, y, s)
+        else:
+            print(f"[INFO] Skipping unsupported char '{ch}'.")
+        x_pos += spacing
+
+
+#################################
+# Main Menu
+#################################
+
+#################################
+# Main Menu (auto-detect)
+#################################
+
+def run_letter_flow():
+    ch = input("Letter: ").strip()
+    write_letter(ch, x=0, y=100, s=10)
+
+def run_word_flow():
+    w = input("Word: ").strip()
+    write_word(w, start_x=-40, y=100, s=10)
+
+DISPATCH = {
+    "letter": run_letter_flow,
+    "word": run_word_flow,
+}
+
+def main():
+    ensure_serial_running()
+
+    if len(sys.argv) >= 2:
+        choice_word = sys.argv[1].strip().lower()
+        func = DISPATCH.get(choice_word)
+        if not func:
+            print(f"Unknown command '{choice_word}'. Valid: {', '.join(DISPATCH.keys())}")
+            return
+        func()
+    else:
+        # NEW: flexible prompt (A–Z => letter, longer => word)
+        raw = input("Type 'letter' or 'word', or just enter a single letter (A–Z) or a whole word: ").strip()
+
+        # direct single-letter case (e.g., "A")
+        if len(raw) == 1 and raw.isalpha():
+            write_letter(raw, x=0, y=100, s=10)
+
+        # direct word case (e.g., "HELLO")
+        elif len(raw) > 1 and raw.replace(" ", "").isalpha():
+            write_word(raw, start_x=-40, y=100, s=10)
+
+        # legacy commands 'letter' / 'word'
+        else:
+            func = DISPATCH.get(raw.lower())
+            if func:
+                func()
+            else:
+                print("Invalid choice. Please type 'letter', 'word', a single letter (A–Z), or a word.")
+                return
+
+    drawing_bot.plot()
+    drawing_bot.execute(promting=True)
+
+
+
+if __name__ == "__main__":
+    main()
 
 
 def letter_C(x=0, y=100, s=10):
@@ -358,11 +427,16 @@ def letter_Z(x=0, y=100, s=10):
     """
     pass
 
+
 LETTER_FUNCS = {
-    'A': letter_A,
-    # ... fill in all others: 'B': letter_B, 'C': letter_C, ...
-    'R': letter_R,
+    'A': letter_A, 'B': letter_B, 'C': letter_C, 'D': letter_D, 'E': letter_E,
+    'F': letter_F, 'G': letter_G, 'H': letter_H, 'I': letter_I, 'J': letter_J,
+    'K': letter_K, 'L': letter_L, 'M': letter_M, 'N': letter_N, 'O': letter_O,
+    'P': letter_P, 'Q': letter_Q, 'R': letter_R, 'S': letter_S, 'T': letter_T,
+    'U': letter_U, 'V': letter_V, 'W': letter_W, 'X': letter_X, 'Y': letter_Y,
+    'Z': letter_Z,
 }
+
 
 def write_letter(char, x=0, y=100, s=10):
     func = LETTER_FUNCS.get(str(char).upper())
@@ -390,9 +464,18 @@ def write_word(word, start_x=0, y=100, s=10, spacing=None):
 # Main Menu
 #################################
 
+
+def run_letter_flow():
+    ch = input("Letter: ").strip()
+    write_letter(ch, x=0, y=100, s=10)
+
+def run_word_flow():
+    w = input("Word: ").strip()
+    write_word(w, start_x=-40, y=100, s=10)
+
 DISPATCH = {
-    "letter": lambda: write_letter(input("Letter: ").strip(), x=0, y=100, s=10),
-    "word": lambda: write_word(input("Word: ").strip(), start_x=-40, y=100, s=10),
+    "letter": run_letter_flow,
+    "word": run_word_flow,
 }
 
 def main():
@@ -406,17 +489,29 @@ def main():
             return
         func()
     else:
-        print("Choose: letter | word")
-        choice = input("Your choice: ").strip().lower()
-        func = DISPATCH.get(choice)
-        if func:
-            func()
+        # NEW: flexible prompt (A–Z => letter, longer => word)
+        raw = input("Type 'letter' or 'word', or just enter a single letter (A–Z) or a whole word: ").strip()
+
+        # direct single-letter case (e.g., "A")
+        if len(raw) == 1 and raw.isalpha():
+            write_letter(raw, x=0, y=100, s=10)
+
+        # direct word case (e.g., "HELLO")
+        elif len(raw) > 1 and raw.replace(" ", "").isalpha():
+            write_word(raw, start_x=-40, y=100, s=10)
+
+        # legacy commands 'letter' / 'word'
         else:
-            print("Invalid choice.")
-            return
+            func = DISPATCH.get(raw.lower())
+            if func:
+                func()
+            else:
+                print("Invalid choice. Please type 'letter', 'word', a single letter (A–Z), or a word.")
+                return
 
     drawing_bot.plot()
     drawing_bot.execute(promting=True)
+
 
 
 if __name__ == "__main__":
