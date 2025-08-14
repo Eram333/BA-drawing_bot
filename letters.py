@@ -249,10 +249,14 @@ def letter_Z(x=0, y=100, s=10):
 #################################
 
 LETTER_FUNCS = {
-    'A': letter_A,
-    # ... fill in all others: 'B': letter_B, 'C': letter_C, ...
-    'R': letter_R,
+    'A': letter_A, 'B': letter_B, 'C': letter_C, 'D': letter_D, 'E': letter_E,
+    'F': letter_F, 'G': letter_G, 'H': letter_H, 'I': letter_I, 'J': letter_J,
+    'K': letter_K, 'L': letter_L, 'M': letter_M, 'N': letter_N, 'O': letter_O,
+    'P': letter_P, 'Q': letter_Q, 'R': letter_R, 'S': letter_S, 'T': letter_T,
+    'U': letter_U, 'V': letter_V, 'W': letter_W, 'X': letter_X, 'Y': letter_Y,
+    'Z': letter_Z,
 }
+
 
 def write_letter(char, x=0, y=100, s=10):
     func = LETTER_FUNCS.get(str(char).upper())
@@ -280,9 +284,21 @@ def write_word(word, start_x=0, y=100, s=10, spacing=None):
 # Main Menu
 #################################
 
+#################################
+# Main Menu (auto-detect)
+#################################
+
+def run_letter_flow():
+    ch = input("Letter: ").strip()
+    write_letter(ch, x=0, y=100, s=10)
+
+def run_word_flow():
+    w = input("Word: ").strip()
+    write_word(w, start_x=-40, y=100, s=10)
+
 DISPATCH = {
-    "letter": lambda: write_letter(input("Letter: ").strip(), x=0, y=100, s=10),
-    "word": lambda: write_word(input("Word: ").strip(), start_x=-40, y=100, s=10),
+    "letter": run_letter_flow,
+    "word": run_word_flow,
 }
 
 def main():
@@ -296,17 +312,29 @@ def main():
             return
         func()
     else:
-        print("Choose: letter | word")
-        choice = input("Your choice: ").strip().lower()
-        func = DISPATCH.get(choice)
-        if func:
-            func()
+        # NEW: flexible prompt (A–Z => letter, longer => word)
+        raw = input("Type 'letter' or 'word', or just enter a single letter (A–Z) or a whole word: ").strip()
+
+        # direct single-letter case (e.g., "A")
+        if len(raw) == 1 and raw.isalpha():
+            write_letter(raw, x=0, y=100, s=10)
+
+        # direct word case (e.g., "HELLO")
+        elif len(raw) > 1 and raw.replace(" ", "").isalpha():
+            write_word(raw, start_x=-40, y=100, s=10)
+
+        # legacy commands 'letter' / 'word'
         else:
-            print("Invalid choice.")
-            return
+            func = DISPATCH.get(raw.lower())
+            if func:
+                func()
+            else:
+                print("Invalid choice. Please type 'letter', 'word', a single letter (A–Z), or a word.")
+                return
 
     drawing_bot.plot()
     drawing_bot.execute(promting=True)
+
 
 
 if __name__ == "__main__":
